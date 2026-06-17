@@ -324,6 +324,112 @@
       localStorage.removeItem('aor_state');
       STATE = JSON.parse(JSON.stringify(DEFAULTS));
     }
+
+    // === GAME ===
+    const GAME = {
+      tickInterval: null,
+
+      start() {
+        loadState();
+        this.tickInterval = setInterval(() => this.tick(), 1000);
+        this.tick(); // immediate first tick for render
+      },
+
+      tick() {
+        STATE.tick++;
+        const R = STATE.resources;
+        const F = STATE.flags;
+
+        // --- Buff calculation ---
+        const cafeBuffActive = R.cafe >= 8;
+        const mateBuffActive = R.mate >= 5;
+        const apuntesMult = cafeBuffActive ? 1.2 : 1;
+        const voluntadMult = mateBuffActive ? 1.15 : 1;
+
+        // --- Resource accumulation ---
+        if (F.hasTakenNote && F.apuntesBlockedTicks <= 0) {
+          R.apuntes = Math.min(999, R.apuntes + 0.2 * apuntesMult);
+        }
+        if (F.mateUnlocked) {
+          R.mate = Math.min(20, R.mate + 0.3);
+        }
+        if (F.cafeUnlocked) {
+          R.cafe = Math.min(12, R.cafe + 0.2);
+        }
+        if (F.voluntadUnlocked && F.voluntadBlockedTicks <= 0) {
+          R.voluntad = Math.min(999, R.voluntad + 0.1 * voluntadMult);
+        }
+
+        // --- Mate and café decay ---
+        if (F.mateUnlocked && STATE.tick % 45 === 0) {
+          R.mate = Math.max(0, R.mate - 1);
+        }
+        if (F.cafeUnlocked && STATE.tick % 60 === 0) {
+          R.cafe = Math.max(0, R.cafe - 1);
+        }
+
+        // --- Budget decay ---
+        if (F.budgetDecayPauseTicks > 0) {
+          F.budgetDecayPauseTicks--;
+        } else {
+          const decayRate = 0.05 * Math.min(3, F.budgetDecayModifier);
+          R.presupuesto = Math.max(0, R.presupuesto - decayRate);
+        }
+
+        // --- Blocked tick countdown ---
+        if (F.apuntesBlockedTicks > 0) F.apuntesBlockedTicks--;
+        if (F.voluntadBlockedTicks > 0) F.voluntadBlockedTicks--;
+        if (F.lightBlockedTicks > 0) F.lightBlockedTicks--;
+        if (F.positiveEventBoostTicks > 0) F.positiveEventBoostTicks--;
+
+        // --- Budget decay modifier reset after crisis windows ---
+        // (modifier is reset by the event that sets it, via a separate countdown)
+
+        saveState();
+        GAME.checkUnlocks();
+        UI.render();
+        GAME.maybeFireEvent();
+      },
+
+      checkUnlocks() {
+        const R = STATE.resources;
+        const F = STATE.flags;
+        const t = STATE.tick;
+
+        // Phase 1 → show esperar after a few ticks
+        UI.show('btn-esperar', t >= 3);
+
+        // Phase 2
+        UI.show('btn-apunte', F.hasTakenNote);
+        UI.show('row-apuntes', F.hasTakenNote);
+        UI.show('row-mate', F.mateUnlocked);
+        UI.show('row-cafe', F.cafeUnlocked);
+        UI.show('row-voluntad', F.voluntadUnlocked);
+
+        // Phase 3
+        UI.show('btn-invitar', F.hasTakenNote && Math.floor(R.apuntes) >= 10 && !F.hasCompanion);
+
+        // Phase 5+ actions
+        const canAsamblea = F.hasGroup && R.presupuesto < 60 && !F.hasCalledAssembly;
+        UI.show('btn-asamblea', canAsamblea);
+
+        const canParo = F.hasCalledAssembly && !F.hasCalledStrike;
+        UI.show('btn-paro', canParo);
+
+        const canMarcha = F.hasCalledStrike;
+        UI.show('btn-marcha', canMarcha);
+
+        // Reaction buttons
+        UI.show('btn-conferencia', F.reactionBtnConferencia);
+        UI.show('btn-paro-docente', F.reactionBtnParoDocente);
+
+        // Background darkening
+        UI.updateBackground(R.presupuesto);
+
+        // Buff indicators
+        UI.updateBuffIndicators(R.cafe >= 8, R.mate >= 5);
+      }
+    };
   </script>
 </body>
 </html>
