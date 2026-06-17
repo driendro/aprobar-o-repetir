@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aprobar o Repetir</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: #0a0a0a;
+      color: #c8b89a;
+      font-family: 'Space Mono', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 3s ease;
+      overflow: hidden;
+    }
+
+    #game {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Left panel — narrative log */
+    #log-panel {
+      width: 60%;
+      border-right: 1px solid #2a2a2a;
+      padding: 24px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    #log-panel::-webkit-scrollbar { width: 4px; }
+    #log-panel::-webkit-scrollbar-track { background: transparent; }
+    #log-panel::-webkit-scrollbar-thumb { background: #2a2a2a; }
+
+    .log-line {
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+      color: #c8b89a;
+    }
+
+    .log-line.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .log-line::before { content: '> '; color: #5a4a3a; }
+
+    /* Right panel — resources + actions */
+    #right-panel {
+      width: 40%;
+      padding: 24px 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .section-title {
+      color: #5a4a3a;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border-bottom: 1px solid #2a2a2a;
+      padding-bottom: 4px;
+      margin-bottom: 8px;
+    }
+
+    /* Resources */
+    #resources-section {}
+
+    .resource-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 1px 0;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+
+    .resource-row.visible { opacity: 1; }
+
+    .resource-name { color: #8a7a62; }
+
+    .resource-value { color: #c8b89a; }
+
+    .buff-indicator {
+      font-size: 10px;
+      color: #6a8a62;
+      margin-left: 6px;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    /* Actions */
+    #actions-section {}
+
+    .action-btn {
+      display: block;
+      width: 100%;
+      background: transparent;
+      border: 1px solid #8a7a62;
+      color: #8a7a62;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 5px 10px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      text-align: left;
+      transition: color 0.2s, border-color 0.2s, opacity 0.6s;
+      opacity: 0;
+    }
+
+    .action-btn.visible { opacity: 1; }
+
+    .action-btn:hover {
+      color: #c8b89a;
+      border-color: #c8b89a;
+    }
+
+    .action-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .action-btn:disabled:hover {
+      color: #8a7a62;
+      border-color: #8a7a62;
+    }
+
+    /* Government events section */
+    #gov-section {
+      display: none;
+      background: #0f0505;
+      border: 1px solid #7a3a3a;
+      padding: 12px;
+    }
+
+    #gov-section .section-title { color: #7a3a3a; border-color: #7a3a3a; }
+
+    #gov-event-text {
+      margin-bottom: 10px;
+      color: #c8a0a0;
+      font-size: 12px;
+    }
+
+    .gov-btn {
+      display: inline-block;
+      background: transparent;
+      border: 1px solid #7a3a3a;
+      color: #c8a0a0;
+      font-family: inherit;
+      font-size: 12px;
+      padding: 4px 12px;
+      margin-right: 8px;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .gov-btn:hover { color: #fff; border-color: #c8a0a0; }
+
+    /* Reset button */
+    #reset-area {
+      text-align: right;
+      padding: 8px 20px;
+      border-top: 1px solid #1a1a1a;
+      min-height: 28px;
+    }
+
+    #reset-btn {
+      background: transparent;
+      border: none;
+      color: #3a3a3a;
+      font-family: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    #reset-btn:hover { color: #6a6a6a; }
+
+    #reset-confirm {
+      display: none;
+      color: #6a6a6a;
+      font-size: 11px;
+    }
+
+    #reset-confirm span { cursor: pointer; color: #8a7a62; }
+    #reset-confirm span:hover { color: #c8b89a; }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="log-panel"></div>
+    <div id="right-panel">
+      <div id="resources-section">
+        <div class="section-title">recursos</div>
+        <div class="resource-row" id="row-apuntes">
+          <span class="resource-name">apuntes</span>
+          <span><span class="resource-value" id="val-apuntes">0</span></span>
+        </div>
+        <div class="resource-row" id="row-mate">
+          <span class="resource-name">mate</span>
+          <span><span class="resource-value" id="val-mate">0</span></span>
+        </div>
+        <div class="resource-row" id="row-cafe">
+          <span class="resource-name">café</span>
+          <span><span class="resource-value" id="val-cafe">0</span></span>
+        </div>
+        <div class="resource-row" id="row-voluntad">
+          <span class="resource-name">voluntad</span>
+          <span><span class="resource-value" id="val-voluntad">0</span></span>
+        </div>
+        <div class="resource-row visible" id="row-presupuesto">
+          <span class="resource-name">presupuesto_facu</span>
+          <span><span class="resource-value" id="val-presupuesto">100</span></span>
+        </div>
+      </div>
+
+      <div id="actions-section">
+        <div class="section-title">acciones</div>
+        <button class="action-btn" id="btn-esperar">esperar</button>
+        <button class="action-btn" id="btn-apunte">tomar apunte</button>
+        <button class="action-btn" id="btn-invitar">invitar a estudiar</button>
+        <button class="action-btn" id="btn-asamblea">convocar asamblea</button>
+        <button class="action-btn" id="btn-paro">organizar paro</button>
+        <button class="action-btn" id="btn-marcha">marchar</button>
+        <button class="action-btn" id="btn-conferencia" style="display:none">convocar conferencia de prensa</button>
+        <button class="action-btn" id="btn-paro-docente" style="display:none">organizar paro docente</button>
+      </div>
+
+      <div id="gov-section">
+        <div class="section-title">! gobierno</div>
+        <div id="gov-event-text"></div>
+        <div id="gov-buttons"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="reset-area">
+    <button id="reset-btn">[nueva partida]</button>
+    <span id="reset-confirm">
+      ¿reiniciar? todo se perderá.
+      <span id="confirm-yes">[confirmar]</span>
+      <span id="confirm-no">[cancelar]</span>
+    </span>
+  </div>
+
+  <script>
+    // JS goes here in subsequent tasks
+  </script>
+</body>
+</html>
