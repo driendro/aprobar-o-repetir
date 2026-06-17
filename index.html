@@ -261,7 +261,69 @@
   </div>
 
   <script>
-    // JS goes here in subsequent tasks
+    // === STATE ===
+    const DEFAULTS = {
+      tick: 0,
+      resources: {
+        apuntes: 0,
+        mate: 0,
+        cafe: 0,
+        voluntad: 0,
+        presupuesto: 100
+      },
+      companions: 0,
+      assemblies: 0,
+      strikes: 0,
+      marches: 0,
+      flags: {
+        hasTakenNote: false,
+        hasCompanion: false,
+        hasGroup: false,
+        hasCalledAssembly: false,
+        hasCalledStrike: false,
+        hasMarched: false,
+        mateUnlocked: false,
+        cafeUnlocked: false,
+        voluntadUnlocked: false,
+        currentGovEvent: null,
+        budgetDecayModifier: 1,
+        budgetDecayPauseTicks: 0,
+        lastEventTick: -90,
+        lastGovEventTick: -90,
+        apuntesBlockedTicks: 0,
+        voluntadBlockedTicks: 0,
+        lightBlockedTicks: 0,
+        positiveEventBoostTicks: 0,
+        reactionBtnConferencia: false,
+        reactionBtnParoDocente: false
+      }
+    };
+
+    let STATE = JSON.parse(JSON.stringify(DEFAULTS));
+
+    function saveState() {
+      localStorage.setItem('aor_state', JSON.stringify(STATE));
+    }
+
+    function loadState() {
+      const saved = localStorage.getItem('aor_state');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          // Merge to handle new keys added in future versions
+          STATE = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), parsed);
+          STATE.resources = Object.assign({}, DEFAULTS.resources, parsed.resources);
+          STATE.flags = Object.assign({}, DEFAULTS.flags, parsed.flags);
+        } catch (e) {
+          STATE = JSON.parse(JSON.stringify(DEFAULTS));
+        }
+      }
+    }
+
+    function resetState() {
+      localStorage.removeItem('aor_state');
+      STATE = JSON.parse(JSON.stringify(DEFAULTS));
+    }
   </script>
 </body>
 </html>
