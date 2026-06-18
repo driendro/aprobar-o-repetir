@@ -331,6 +331,13 @@
 
       start() {
         loadState();
+        if (STATE.tick === 0) {
+          // Fresh game — queue opening narrative
+          setTimeout(() => UI.addLog('Estás solo en el aula.'), 500);
+          setTimeout(() => UI.addLog('Hay silencio.'), 1800);
+          setTimeout(() => UI.addLog('La pizarra está en blanco.'), 3200);
+          setTimeout(() => UI.addLog('Afuera, algo pasa. Todavía no sabés qué.'), 5000);
+        }
         this.tickInterval = setInterval(() => this.tick(), 1000);
         this.tick(); // immediate first tick for render
       },
@@ -566,6 +573,140 @@
       }
     };
 
+    // === ACTIONS ===
+    function applyAction(actionId) {
+      const R = STATE.resources;
+      const F = STATE.flags;
+
+      if (actionId === 'esperar') {
+        // One-time: triggers phase 2
+        document.getElementById('btn-esperar').style.display = 'none';
+        F.hasTakenNote = false; // will be set by tomar apunte
+        F.mateUnlocked = true;
+        UI.addLog('Tomás el cuaderno. Algo tenés que hacer.');
+        setTimeout(() => UI.addLog('En el pasillo alguien dejó un termo de mate.'), 1200);
+        // Delay before showing btn-apunte via flag
+        setTimeout(() => { F.hasTakenNote = false; }, 0);
+        // Show tomar apunte button
+        setTimeout(() => {
+          document.getElementById('btn-apunte').style.display = '';
+          requestAnimationFrame(() => document.getElementById('btn-apunte').classList.add('visible'));
+          document.getElementById('row-apuntes').style.display = '';
+          requestAnimationFrame(() => document.getElementById('row-apuntes').classList.add('visible'));
+          document.getElementById('row-mate').style.display = '';
+          requestAnimationFrame(() => document.getElementById('row-mate').classList.add('visible'));
+        }, 2000);
+        // Mark esperar as done so it doesn't re-appear
+        F.hasTakenNote = true;
+        return;
+      }
+
+      if (actionId === 'apunte') {
+        R.apuntes = Math.min(999, R.apuntes + 5);
+        if (Math.floor(R.apuntes) >= 10 && !F.hasCompanion) {
+          UI.addLog('Escuchás pasos en el pasillo.');
+        }
+        return;
+      }
+
+      if (actionId === 'invitar') {
+        if (R.apuntes < 10) return;
+        R.apuntes -= 10;
+        STATE.companions++;
+        F.hasCompanion = true;
+        F.hasGroup = true;
+        F.cafeUnlocked = true;
+        F.voluntadUnlocked = true;
+        UI.addLog('Entra Agustín. "¿Tenés los apuntes del parcial?"');
+        setTimeout(() => UI.addLog('Se sienta. Pide café. La charla empieza.'), 1000);
+        setTimeout(() => UI.addLog('Hay algo diferente en el aula cuando no estás solo.'), 2200);
+        setTimeout(() => {
+          document.getElementById('row-cafe').style.display = '';
+          requestAnimationFrame(() => document.getElementById('row-cafe').classList.add('visible'));
+          document.getElementById('row-voluntad').style.display = '';
+          requestAnimationFrame(() => document.getElementById('row-voluntad').classList.add('visible'));
+        }, 1500);
+        document.getElementById('btn-invitar').style.display = 'none';
+        return;
+      }
+
+      if (actionId === 'asamblea') {
+        if (R.mate < 8 || R.voluntad < 30) {
+          UI.addLog('No hay suficiente voluntad ni mate para convocar.');
+          return;
+        }
+        R.mate -= 8;
+        R.voluntad -= 30;
+        STATE.assemblies++;
+        F.hasCalledAssembly = true;
+        F.budgetDecayPauseTicks = Math.max(F.budgetDecayPauseTicks, 60);
+        UI.addLog('Convocás la asamblea en el hall.');
+        setTimeout(() => UI.addLog('Aparecen más personas de las esperadas.'), 1000);
+        setTimeout(() => UI.addLog('Por ahora, el ajuste frena un poco.'), 2200);
+        document.getElementById('btn-asamblea').style.display = 'none';
+        return;
+      }
+
+      if (actionId === 'paro') {
+        if (R.voluntad < 50) {
+          UI.addLog('Falta voluntad para sostener un paro.');
+          return;
+        }
+        R.voluntad -= 50;
+        STATE.strikes++;
+        F.hasCalledStrike = true;
+        F.budgetDecayPauseTicks = Math.max(F.budgetDecayPauseTicks, 180);
+        UI.addLog('El paro es total. Las aulas vacías pesan.');
+        setTimeout(() => UI.addLog('Los medios lo ignoran, pero dentro de la facu se siente.'), 1200);
+        return;
+      }
+
+      if (actionId === 'marcha') {
+        if (R.voluntad < 80 || R.apuntes < 20) {
+          UI.addLog('Falta voluntad y apuntes para organizar la marcha.');
+          return;
+        }
+        R.voluntad -= 80;
+        R.apuntes -= 20;
+        STATE.marches++;
+        F.hasMarched = true;
+        F.budgetDecayPauseTicks = Math.max(F.budgetDecayPauseTicks, 180);
+        F.positiveEventBoostTicks = 300;
+        UI.addLog('La marcha llena la avenida.');
+        setTimeout(() => UI.addLog('Hay estudiantes, docentes, no docentes, familias.'), 1000);
+        setTimeout(() => UI.addLog('Por un momento, el aula imaginaria es la calle.'), 2200);
+        return;
+      }
+
+      if (actionId === 'conferencia') {
+        if (R.apuntes < 50 || R.voluntad < 30) {
+          UI.addLog('No hay suficientes apuntes ni voluntad para la conferencia.');
+          return;
+        }
+        R.apuntes -= 50;
+        R.voluntad -= 30;
+        R.presupuesto = Math.min(100, R.presupuesto + 5);
+        F.budgetDecayPauseTicks = Math.max(F.budgetDecayPauseTicks, 60);
+        F.reactionBtnConferencia = false;
+        UI.addLog('La conferencia de prensa sale en dos canales.');
+        setTimeout(() => UI.addLog('El ministerio no contesta. Pero el número subió un poco.'), 1200);
+        return;
+      }
+
+      if (actionId === 'paro-docente') {
+        if (R.voluntad < 50) {
+          UI.addLog('Falta voluntad para sostener el paro docente.');
+          return;
+        }
+        R.voluntad -= 50;
+        F.budgetDecayModifier = 1; // cancels the x2 from gov event
+        F.reactionBtnParoDocente = false;
+        UI.addLog('Los docentes paran. El ajuste no puede ignorar eso.');
+        setTimeout(() => UI.addLog('La tasa de recorte vuelve a la normalidad.'), 1000);
+        return;
+      }
+    }
+
     // === INIT ===
     document.addEventListener('DOMContentLoaded', () => {
       // Reset button
@@ -580,6 +721,11 @@
       document.getElementById('confirm-no').addEventListener('click', () => {
         document.getElementById('reset-btn').style.display = '';
         document.getElementById('reset-confirm').style.display = 'none';
+      });
+
+      ['esperar','apunte','invitar','asamblea','paro','marcha','conferencia','paro-docente'].forEach(id => {
+        const btn = document.getElementById('btn-' + id);
+        if (btn) btn.addEventListener('click', () => applyAction(id));
       });
 
       GAME.start();
