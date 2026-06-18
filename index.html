@@ -325,6 +325,129 @@
       STATE = JSON.parse(JSON.stringify(DEFAULTS));
     }
 
+    // === EVENTS ===
+    const EVENTS = {
+      chaos: [
+        {
+          id: 'siu',
+          condition: (F) => F.hasTakenNote,
+          narrative: ['El SIU Guaraní se cayó.', 'Perdés los apuntes de esta semana.'],
+          effect(R, F) { R.apuntes = Math.max(0, R.apuntes * 0.7); }
+        },
+        {
+          id: 'docente',
+          condition: (F) => F.hasGroup,
+          narrative: ['Un docente renunció.', 'Era el mejor de la cátedra.'],
+          effect(R, F) { R.voluntad = Math.max(0, R.voluntad - 15); }
+        },
+        {
+          id: 'luz',
+          condition: (F) => F.hasTakenNote,
+          narrative: ['Cortaron la luz.', 'La clase se suspendió.'],
+          effect(R, F) { F.apuntesBlockedTicks = 60; }
+        },
+        {
+          id: 'fotocopiadora',
+          condition: (F) => F.hasTakenNote,
+          narrative: ['El fotocopiador del pasillo se rompió.', 'A conseguir apuntes de otra forma.'],
+          effect(R, F) { R.apuntes = Math.max(0, R.apuntes - 10); R.mate = Math.max(0, R.mate - 3); }
+        },
+        {
+          id: 'transporte',
+          condition: (F) => F.hasGroup,
+          narrative: ['Paro de transporte.', 'Nadie llegó a la facu hoy.'],
+          effect(R, F) { R.voluntad = Math.max(0, R.voluntad - 20); F.voluntadBlockedTicks = 30; }
+        }
+      ],
+
+      gov: [
+        {
+          id: 'comedor',
+          condition: (F) => F.hasGroup,
+          text: 'El gobierno ofrece fondos a cambio de privatizar el comedor universitario.',
+          choices: [
+            {
+              label: '[aceptar]',
+              narrative: 'Aceptaron. El comedor ahora cobra. Algunos no pueden pagar.',
+              effect(R, F) { R.presupuesto = Math.min(100, R.presupuesto + 15); R.voluntad = Math.max(0, R.voluntad - 30); }
+            },
+            {
+              label: '[rechazar]',
+              narrative: 'Rechazaron. El comedor sigue siendo de todos.',
+              effect(R, F) { R.voluntad = Math.min(999, R.voluntad + 20); }
+            }
+          ]
+        },
+        {
+          id: 'ingreso',
+          condition: (F) => F.hasCalledAssembly,
+          text: 'Proponen examen eliminatorio de ingreso a cambio de más presupuesto.',
+          choices: [
+            {
+              label: '[aceptar]',
+              narrative: 'El ingreso irrestricto se perdió. Algunos compañeros no pudieron entrar.',
+              effect(R, F) { R.presupuesto = Math.min(100, R.presupuesto + 10); R.voluntad = Math.max(0, R.voluntad - 25); }
+            },
+            {
+              label: '[rechazar]',
+              narrative: 'La universidad pública sigue siendo de todos. Por ahora.',
+              effect(R, F) { R.voluntad = Math.min(999, R.voluntad + 15); }
+            }
+          ]
+        },
+        {
+          id: 'veto',
+          condition: (F) => F.hasGroup,
+          text: 'Vetaron la ley de financiamiento universitario.',
+          choices: null, // no choice — immediate effect + reaction button
+          narrative: 'El presupuesto cae 20 puntos de golpe. El ajuste se acelera.',
+          effect(R, F) {
+            R.presupuesto = Math.max(0, R.presupuesto - 20);
+            F.budgetDecayModifier = Math.min(3, F.budgetDecayModifier + 1);
+            F.reactionBtnConferencia = true;
+          }
+        },
+        {
+          id: 'ajuste',
+          condition: (F) => F.hasGroup,
+          text: 'Anunciaron ajuste del 30% al presupuesto universitario.',
+          choices: null,
+          narrative: 'La tasa de recorte se duplica. El gobierno lo llama "eficiencia".',
+          effect(R, F) {
+            F.budgetDecayModifier = Math.min(3, F.budgetDecayModifier + 1);
+            F.reactionBtnParoDocente = true;
+          }
+        }
+      ],
+
+      positive: [
+        {
+          id: 'noticias',
+          condition: (F) => F.hasMarched,
+          narrative: ['Salió en las noticias la marcha.', 'La gente se suma.'],
+          effect(R, F) { R.voluntad = Math.min(999, R.voluntad + 30); }
+        },
+        {
+          id: 'financiamiento',
+          condition: (F) => F.hasCalledAssembly,
+          narrative: ['Una cátedra consiguió financiamiento externo.', 'Respiro temporal.'],
+          effect(R, F) { R.presupuesto = Math.min(100, R.presupuesto + 8); }
+        },
+        {
+          id: 'solidaridad',
+          condition: (F) => F.hasCalledStrike,
+          narrative: ['Estudiantes de otras facultades se solidarizaron.'],
+          effect(R, F) { R.voluntad = Math.min(999, R.voluntad + 25); }
+        },
+        {
+          id: 'rector',
+          condition: (F) => F.hasCalledAssembly,
+          narrative: ['El rector salió a respaldar al claustro.', 'El recorte frena por unos días.'],
+          effect(R, F) { F.budgetDecayPauseTicks = Math.max(F.budgetDecayPauseTicks, 90); }
+        }
+      ]
+    };
+
     // === GAME ===
     const GAME = {
       tickInterval: null,
@@ -466,12 +589,84 @@
       },
 
       maybeFireEvent() {
-        // Placeholder for event logic
+        const R = STATE.resources;
+        const F = STATE.flags;
+        const t = STATE.tick;
+
+        // Don't fire while a gov event is pending
+        if (F.currentGovEvent) return;
+
+        const cooldownOk = t - F.lastEventTick >= 90;
+        const govCooldownOk = t - F.lastGovEventTick >= 90;
+
+        // Chaos events: 5% chance, cooldown 90 ticks
+        if (cooldownOk && Math.random() < 0.05) {
+          const eligible = EVENTS.chaos.filter(e => e.condition(F));
+          if (eligible.length > 0) {
+            const ev = eligible[Math.floor(Math.random() * eligible.length)];
+            ev.narrative.forEach((line, i) => setTimeout(() => UI.addLog(line), i * 900));
+            setTimeout(() => ev.effect(R, F), ev.narrative.length * 900);
+            F.lastEventTick = t;
+            return;
+          }
+        }
+
+        // Government events: 3% chance, phase 5+ (presupuesto < 85), no pending gov event
+        if (govCooldownOk && R.presupuesto < 85 && Math.random() < 0.03) {
+          const eligible = EVENTS.gov.filter(e => e.condition(F));
+          if (eligible.length > 0) {
+            const ev = eligible[Math.floor(Math.random() * eligible.length)];
+            F.currentGovEvent = ev.id;
+            F.lastGovEventTick = t;
+            saveState();
+            if (ev.choices) {
+              UI.showGovEvent(ev);
+            } else {
+              // No-choice gov event: show text, apply effect on dismiss
+              UI.showGovEvent({
+                text: ev.text,
+                choices: null,
+                _evId: ev.id
+              });
+            }
+            return;
+          }
+        }
+
+        // Positive events: 4% chance if boost active, otherwise 2%
+        const positiveChance = F.positiveEventBoostTicks > 0 ? 0.04 : 0.02;
+        if (cooldownOk && Math.random() < positiveChance) {
+          const eligible = EVENTS.positive.filter(e => e.condition(F));
+          if (eligible.length > 0) {
+            const ev = eligible[Math.floor(Math.random() * eligible.length)];
+            ev.narrative.forEach((line, i) => setTimeout(() => UI.addLog(line), i * 900));
+            setTimeout(() => ev.effect(R, F), ev.narrative.length * 900);
+            F.lastEventTick = t;
+          }
+        }
       },
 
       resolveGovEvent(choice) {
-        // Placeholder for government event resolution
+        const R = STATE.resources;
+        const F = STATE.flags;
+        const evId = F.currentGovEvent;
+
+        if (choice) {
+          // Binary choice
+          UI.addLog(choice.narrative);
+          setTimeout(() => choice.effect(R, F), 900);
+        } else {
+          // No-choice event (veto, ajuste) — find and apply effect
+          const ev = EVENTS.gov.find(e => e.id === evId);
+          if (ev) {
+            UI.addLog(ev.narrative);
+            setTimeout(() => ev.effect(R, F), 900);
+          }
+        }
+
+        F.currentGovEvent = null;
         UI.hideGovEvent();
+        saveState();
       }
     };
 
