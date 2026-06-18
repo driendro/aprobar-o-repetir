@@ -435,6 +435,34 @@
 
         // Buff indicators
         UI.updateBuffIndicators(R.cafe >= 8, R.mate >= 5);
+
+        // Disable buttons when costs aren't met
+        const btnAsamblea = document.getElementById('btn-asamblea');
+        if (btnAsamblea && btnAsamblea.style.display !== 'none') {
+          btnAsamblea.disabled = R.mate < 8 || R.voluntad < 30;
+          btnAsamblea.title = R.mate < 8 || R.voluntad < 30
+            ? `necesitás mate ≥ 8 (tenés ${Math.floor(R.mate)}) y voluntad ≥ 30 (tenés ${Math.floor(R.voluntad)})`
+            : '';
+        }
+        const btnParo = document.getElementById('btn-paro');
+        if (btnParo && btnParo.style.display !== 'none') {
+          btnParo.disabled = R.voluntad < 50;
+          btnParo.title = R.voluntad < 50 ? `necesitás voluntad ≥ 50` : '';
+        }
+        const btnMarcha = document.getElementById('btn-marcha');
+        if (btnMarcha && btnMarcha.style.display !== 'none') {
+          btnMarcha.disabled = R.voluntad < 80 || R.apuntes < 20;
+          btnMarcha.title = R.voluntad < 80 || R.apuntes < 20
+            ? `necesitás voluntad ≥ 80 y apuntes ≥ 20` : '';
+        }
+        const btnConf = document.getElementById('btn-conferencia');
+        if (btnConf && btnConf.style.display !== 'none') {
+          btnConf.disabled = R.apuntes < 50 || R.voluntad < 30;
+        }
+        const btnPD = document.getElementById('btn-paro-docente');
+        if (btnPD && btnPD.style.display !== 'none') {
+          btnPD.disabled = R.voluntad < 50;
+        }
       },
 
       maybeFireEvent() {
