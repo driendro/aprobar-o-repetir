@@ -295,7 +295,11 @@
         lightBlockedTicks: 0,
         positiveEventBoostTicks: 0,
         reactionBtnConferencia: false,
-        reactionBtnParoDocente: false
+        reactionBtnParoDocente: false,
+        crisis85: false,
+        crisis60: false,
+        crisis40: false,
+        crisis15: false
       }
     };
 
@@ -504,6 +508,30 @@
         } else {
           const decayRate = 0.05 * Math.min(3, F.budgetDecayModifier);
           R.presupuesto = Math.max(0, R.presupuesto - decayRate);
+        }
+
+        // --- Crisis narrative triggers (one-time) ---
+        if (!F.crisis85 && R.presupuesto < 85) {
+          F.crisis85 = true;
+          UI.addLog('El presupuesto universitario empezó a caer.');
+          setTimeout(() => UI.addLog('No es novedad. Pero esta vez se siente diferente.'), 1200);
+        }
+        if (!F.crisis60 && R.presupuesto < 60) {
+          F.crisis60 = true;
+          UI.addLog('Las luces del pasillo parpadean más seguido.');
+          setTimeout(() => UI.addLog('Dicen que es falta de mantenimiento. Dicen.'), 1200);
+          setTimeout(() => UI.addLog('Podés convocar una asamblea.'), 2800);
+        }
+        if (!F.crisis40 && R.presupuesto < 40) {
+          F.crisis40 = true;
+          UI.addLog('Cerraron el bar de la facu. No había plata para insumos.');
+          setTimeout(() => UI.addLog('Alguien trajo mate de su casa.'), 1200);
+        }
+        if (!F.crisis15 && R.presupuesto < 15) {
+          F.crisis15 = true;
+          UI.addLog('El aula huele a humedad. Hace meses que no arreglan las goteras.');
+          setTimeout(() => UI.addLog('El presupuesto casi no existe.'), 1200);
+          setTimeout(() => UI.addLog('Pero el aula sigue llena.'), 2800);
         }
 
         // --- Blocked tick countdown ---
