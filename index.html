@@ -428,8 +428,162 @@
 
         // Buff indicators
         UI.updateBuffIndicators(R.cafe >= 8, R.mate >= 5);
+      },
+
+      maybeFireEvent() {
+        // Placeholder for event logic
+      },
+
+      resolveGovEvent(choice) {
+        // Placeholder for government event resolution
+        UI.hideGovEvent();
       }
     };
+
+    // === UI ===
+    const UI = {
+      logQueue: [],
+      logProcessing: false,
+
+      render() {
+        const R = STATE.resources;
+        document.getElementById('val-apuntes').textContent = Math.floor(R.apuntes);
+        document.getElementById('val-mate').textContent = Math.floor(R.mate);
+        document.getElementById('val-cafe').textContent = Math.floor(R.cafe);
+        document.getElementById('val-voluntad').textContent = Math.floor(R.voluntad);
+        document.getElementById('val-presupuesto').textContent = Math.floor(R.presupuesto);
+      },
+
+      show(id, condition) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (condition) {
+          el.style.display = '';
+          // Trigger fade-in on next frame if not already visible
+          if (!el.classList.contains('visible')) {
+            requestAnimationFrame(() => el.classList.add('visible'));
+          }
+        } else {
+          el.style.display = 'none';
+          el.classList.remove('visible');
+        }
+      },
+
+      addLog(text) {
+        this.logQueue.push(text);
+        if (!this.logProcessing) this._processQueue();
+      },
+
+      _processQueue() {
+        if (this.logQueue.length === 0) {
+          this.logProcessing = false;
+          return;
+        }
+        this.logProcessing = true;
+        const text = this.logQueue.shift();
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        line.textContent = text;
+        const panel = document.getElementById('log-panel');
+        panel.appendChild(line);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => line.classList.add('visible'));
+        });
+        panel.scrollTop = panel.scrollHeight;
+        setTimeout(() => this._processQueue(), 800);
+      },
+
+      updateBackground(presupuesto) {
+        let bg;
+        if (presupuesto >= 70) bg = '#0a0a0a';
+        else if (presupuesto >= 40) bg = '#060608';
+        else if (presupuesto >= 15) bg = '#080604';
+        else bg = '#080402';
+        document.body.style.backgroundColor = bg;
+      },
+
+      updateBuffIndicators(cafeActive, mateActive) {
+        // Café buff indicator on apuntes row
+        let cafeInd = document.getElementById('buff-cafe');
+        if (cafeActive) {
+          if (!cafeInd) {
+            cafeInd = document.createElement('span');
+            cafeInd.id = 'buff-cafe';
+            cafeInd.className = 'buff-indicator';
+            cafeInd.title = 'el grupo está despierto: apuntes +20%';
+            cafeInd.textContent = '↑';
+            document.querySelector('#row-apuntes .resource-value').after(cafeInd);
+          }
+        } else if (cafeInd) {
+          cafeInd.remove();
+        }
+
+        // Mate buff indicator on voluntad row
+        let mateInd = document.getElementById('buff-mate');
+        if (mateActive) {
+          if (!mateInd) {
+            mateInd = document.createElement('span');
+            mateInd.id = 'buff-mate';
+            mateInd.className = 'buff-indicator';
+            mateInd.title = 'alguien cebó mate: voluntad +15%';
+            mateInd.textContent = '↑';
+            document.querySelector('#row-voluntad .resource-value').after(mateInd);
+          }
+        } else if (mateInd) {
+          mateInd.remove();
+        }
+      },
+
+      showGovEvent(eventObj) {
+        const section = document.getElementById('gov-section');
+        document.getElementById('gov-event-text').textContent = eventObj.text;
+        const buttonsDiv = document.getElementById('gov-buttons');
+        buttonsDiv.innerHTML = '';
+
+        if (eventObj.choices) {
+          eventObj.choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'gov-btn';
+            btn.textContent = choice.label;
+            btn.onclick = () => GAME.resolveGovEvent(choice);
+            buttonsDiv.appendChild(btn);
+          });
+        } else {
+          // No-choice event — just show "entendido"
+          const btn = document.createElement('button');
+          btn.className = 'gov-btn';
+          btn.textContent = '[entendido]';
+          btn.onclick = () => GAME.resolveGovEvent(null);
+          buttonsDiv.appendChild(btn);
+        }
+        section.style.display = 'block';
+      },
+
+      hideGovEvent() {
+        document.getElementById('gov-section').style.display = 'none';
+        document.getElementById('gov-buttons').innerHTML = '';
+        document.getElementById('gov-event-text').textContent = '';
+      }
+    };
+
+    // === INIT ===
+    document.addEventListener('DOMContentLoaded', () => {
+      // Reset button
+      document.getElementById('reset-btn').addEventListener('click', () => {
+        document.getElementById('reset-btn').style.display = 'none';
+        document.getElementById('reset-confirm').style.display = 'inline';
+      });
+      document.getElementById('confirm-yes').addEventListener('click', () => {
+        resetState();
+        location.reload();
+      });
+      document.getElementById('confirm-no').addEventListener('click', () => {
+        document.getElementById('reset-btn').style.display = '';
+        document.getElementById('reset-confirm').style.display = 'none';
+      });
+
+      GAME.start();
+    });
   </script>
 </body>
 </html>
