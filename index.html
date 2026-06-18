@@ -555,7 +555,7 @@
         const t = STATE.tick;
 
         // Phase 1 → show esperar after a few ticks
-        UI.show('btn-esperar', t >= 3);
+        UI.show('btn-esperar', t >= 3 && !F.hasTakenNote);
 
         // Phase 2
         UI.show('btn-apunte', F.hasTakenNote);
@@ -836,8 +836,6 @@
         F.mateUnlocked = true;
         UI.addLog('Tomás el cuaderno. Algo tenés que hacer.');
         setTimeout(() => UI.addLog('En el pasillo alguien dejó un termo de mate.'), 1200);
-        // Delay before showing btn-apunte via flag
-        setTimeout(() => { F.hasTakenNote = false; }, 0);
         // Show tomar apunte button
         setTimeout(() => {
           document.getElementById('btn-apunte').style.display = '';
